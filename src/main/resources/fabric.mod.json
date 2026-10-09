@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "crossview",
+	"version": "${version}",
+	"name": "CrossView",
+	"description": "Native stereoscopic 3D for Minecraft: Side By Side (cross-eyed or parallel) and Anaglyph (red-cyan, green-magenta, blue-yellow), with adjustable depth, crosshair depth and desaturation. Press G for settings, H to toggle 3D.",
+	"authors": [
+		"Arturopakastur, Claude, AutogolazzoJr (original mod dev)"
+	],
+	"contact": {
+		"homepage": "https://github.com/arturopakastur/CrossView",
+		"sources": "https://github.com/arturopakastur/CrossView",
+		"issues": "https://github.com/arturopakastur/CrossView/issues"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/crossview/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"main": [
+			"io.github.arturopakastur.crossview.CrossView"
+		],
+		"client": [
+			"io.github.arturopakastur.crossview.client.CrossViewClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "crossview.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
