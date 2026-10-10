@@ -48,7 +48,6 @@ Put the CrossView jar and the Fabric API jar into your `mods` folder.
 ## Good to know
 
 - The world is drawn twice, so expect roughly half the frame rate.
-- Debug overlays (F3 shapes) appear in one eye only.
 - F2 screenshots capture a single eye.
 - Glow outlines in Anaglyph mode come from one eye only.
 - The operating system mouse cursor is drawn once, not in both halves.
