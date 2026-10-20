@@ -46,6 +46,9 @@ public final class CrossViewSideBySide {
 	/** 0 or 1 while an eye is being built, otherwise -1. */
 	private static int currentEye = -1;
 
+	/** The main render target (one eye wide). Its size is what the crosshair depth is measured in. */
+	private static RenderTarget mainTarget;
+
 	private static TextureTarget eyeZeroCopy;
 	private static TextureTarget composite;
 	private static boolean compositeReady;
@@ -74,6 +77,15 @@ public final class CrossViewSideBySide {
 		CrossViewEyes.Snapshot lists = world ? CrossViewEyes.Snapshot.take(level) : null;
 		Matrix4f baseView = new Matrix4f(camera.viewRotationMatrix);
 		Matrix4f baseProjection = new Matrix4f(camera.projectionMatrix);
+
+		mainTarget = main;
+
+		// Dynamic Crosshair Depth: find what is under the crosshair once per frame, before either eye is built.
+		if (world) {
+			CrossViewDynamicDepth.update(minecraft, gameRenderer, camera, baseProjection);
+		} else {
+			CrossViewDynamicDepth.reset();
+		}
 
 		try {
 			for (int eye = 0; eye < 2; eye++) {
@@ -183,19 +195,32 @@ public final class CrossViewSideBySide {
 	 * Horizontal crosshair shift for the eye currently being built, in GUI units.
 	 * Original: the crosshair viewport was moved by Crosshair Depth pixels, in opposite directions
 	 * for the two eyes, and flipped by Invert 3D. Only in Side By Side, only while 3D is on.
+	 *
+	 * Dynamic Crosshair on: the pixel shift is the automatic depth for whatever is under the
+	 * crosshair (CrossViewDynamicDepth) PLUS the Crosshair Depth setting, which then works as an
+	 * offset: 0 = exactly on the target, positive = farther, negative = closer.
 	 */
 	public static float crosshairShift() {
 		if (currentEye < 0 || !CrossViewConfig.isSideBySide() || !CrossViewConfig.parallaxActive()) {
 			return 0.0F;
 		}
 
-		int depth = CrossViewConfig.crosshairDepth;
-		if (depth == 0) {
+		double pixels = CrossViewConfig.crosshairDepth;
+		if (CrossViewConfig.dynamicCrosshair && mainTarget != null) {
+			pixels += CrossViewDynamicDepth.currentAutoDepth(mainTarget.width, mainTarget.height);
+
+			// Not a setting limit: just keeps the crosshair inside the eye image (very close targets
+			// would otherwise push it off the edge).
+			double limit = Math.max(0.0, mainTarget.width / 2.0 - 8.0);
+			pixels = Math.clamp(pixels, -limit, limit);
+		}
+
+		if (pixels == 0.0) {
 			return 0.0F;
 		}
 
-		float pixels = depth * (CrossViewConfig.invert ? -1 : 1) * (currentEye == 1 ? 1 : -1);
+		double signed = pixels * (CrossViewConfig.invert ? -1 : 1) * (currentEye == 1 ? 1 : -1);
 		int guiScale = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
-		return pixels / guiScale;
+		return (float) (signed / guiScale);
 	}
 }

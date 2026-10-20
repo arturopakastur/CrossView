@@ -7,6 +7,7 @@ import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.state.level.BlockBreakingRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
+import net.minecraft.gizmos.SimpleGizmoCollector.GizmoInstance;
 import org.joml.Matrix4f;
 
 /**
@@ -20,17 +21,22 @@ public final class CrossViewEyes {
 	private CrossViewEyes() {
 	}
 
-	/** The level renderer empties these lists while drawing, so a second eye needs copies. */
+	/**
+	 * The level renderer empties these lists while drawing, so a second eye needs copies.
+	 * {@code gizmos} are the F3 debug shapes (hitboxes, chunk borders, ...), see CrossViewGizmos.
+	 */
 	public record Snapshot(
 			List<EntityRenderState> entities,
 			List<BlockEntityRenderState> blockEntities,
-			List<BlockBreakingRenderState> blockBreaking
+			List<BlockBreakingRenderState> blockBreaking,
+			List<GizmoInstance> gizmos
 	) {
 		public static Snapshot take(LevelRenderState level) {
 			return new Snapshot(
 					new ArrayList<>(level.entityRenderStates),
 					new ArrayList<>(level.blockEntityRenderStates),
-					new ArrayList<>(level.blockBreakingRenderStates)
+					new ArrayList<>(level.blockBreakingRenderStates),
+					CrossViewGizmos.takeCaptured()
 			);
 		}
 
@@ -41,6 +47,7 @@ public final class CrossViewEyes {
 			level.blockEntityRenderStates.addAll(blockEntities);
 			level.blockBreakingRenderStates.clear();
 			level.blockBreakingRenderStates.addAll(blockBreaking);
+			CrossViewGizmos.restore(gizmos);
 		}
 	}
 

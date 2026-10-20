@@ -59,10 +59,32 @@ public final class CrossViewConfig {
 	public static boolean vignette = false;                // "Vignette"
 	public static int power = 5;                           // "3D Power", 1..10
 	public static boolean crosshair = true;                // "Crosshair"
-	public static int crosshairDepth = 0;                  // "Crosshair Depth", -50..50 in steps of 10
+	public static int crosshairDepth = 0;                  // "Crosshair Depth" slider, -50..50 in steps of 1 (an offset when Dynamic Crosshair is on)
 	public static AnaglyphType anaglyphType = AnaglyphType.RED_CYAN; // "Anaglyph Type"
-	public static boolean legacy3d = false;                // "Legacy 3D"
+	public static boolean legacy3d = true;                 // "Legacy 3D"
 	public static int desaturate = 0;                      // "Desaturate", 0..100
+
+	// ---- Dynamic Crosshair Depth (new, not in the original mod) ----
+	/**
+	 * Side By Side only. The crosshair depth follows whatever is under the crosshair (block, entity
+	 * or sky), and "Crosshair Depth" becomes an offset (in pixels, per eye) from that automatic
+	 * depth. 0 = exactly on the target. Does nothing in Anaglyph or with 3D off.
+	 */
+	public static boolean dynamicCrosshair = true;        // "Dynamic Crosshair"
+	/**
+	 * How fast the automatic depth follows the target, in 1/seconds. 0 or less = instant, no
+	 * smoothing. The settings screen cycles through the presets below ("Dynamic Speed"); any other
+	 * number written in the JSON file still works and is shown as "Custom".
+	 */
+	public static double dynamicSpeed = 10.0;                // "Dynamic Speed"
+	private static final String[] SPEED_LABELS = {"Slow", "Normal", "Fast", "Instant"};
+	private static final double[] SPEED_VALUES = {5.0, 10.0, 100.0, 0.0};
+	/**
+	 * Fine-tuning multiplier on the calibrated distance scale. 1.0 = exactly matches the reference
+	 * measurement in CrossViewDepthMath. Raise it if the crosshair looks too close to you for
+	 * everything, lower it if too far. JSON only.
+	 */
+	public static double dynamicCalibration = 1.0;
 
 	// ---- Helpers. The cycle methods wrap around at the end, like the original buttons. ----
 
@@ -92,6 +114,32 @@ public final class CrossViewConfig {
 		return enabled && mode != Mode.OFF;
 	}
 
+	/** Dynamic Crosshair Depth is active: Side By Side, 3D on, option on. */
+	public static boolean dynamicCrosshairActive() {
+		return dynamicCrosshair && isSideBySide() && parallaxActive();
+	}
+
+	/** Index into the Dynamic Speed presets, or -1 if the saved value is not one of them. */
+	private static int dynamicSpeedIndex() {
+		for (int i = 0; i < SPEED_VALUES.length; i++) {
+			if (Math.abs(dynamicSpeed - SPEED_VALUES[i]) < 1.0E-9) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	/** Label for the settings screen: Slow / Normal / Fast / Instant (or Custom for a hand-edited value). */
+	public static String dynamicSpeedLabel() {
+		int index = dynamicSpeedIndex();
+		return index >= 0 ? SPEED_LABELS[index] : "Custom";
+	}
+
+	/** Slow -> Normal -> Fast -> Instant -> Slow. A custom value moves to Slow. */
+	public static void cycleDynamicSpeed() {
+		dynamicSpeed = SPEED_VALUES[(dynamicSpeedIndex() + 1) % SPEED_VALUES.length];
+	}
+
 	public static void cycleMode() {
 		Mode[] all = Mode.values();
 		mode = all[(mode.ordinal() + 1) % all.length];
@@ -106,8 +154,8 @@ public final class CrossViewConfig {
 		power = power >= 10 ? 1 : power + 1;
 	}
 
-	public static void cycleCrosshairDepth() {
-		crosshairDepth = crosshairDepth >= 50 ? -50 : crosshairDepth + 10;
+	public static void setCrosshairDepth(int value) {
+		crosshairDepth = Math.clamp(value, -50, 50);
 	}
 
 	public static void setDesaturate(int value) {
@@ -142,10 +190,13 @@ public final class CrossViewConfig {
 			vignette = readBoolean(json, "vignette", vignette);
 			power = readInt(json, "power", power, 1, 10, 1);
 			crosshair = readBoolean(json, "crosshair", crosshair);
-			crosshairDepth = readInt(json, "crosshairDepth", crosshairDepth, -50, 50, 10);
+			crosshairDepth = readInt(json, "crosshairDepth", crosshairDepth, -50, 50, 1);
 			anaglyphType = readEnum(json, "anaglyphType", AnaglyphType.class, anaglyphType);
 			legacy3d = readBoolean(json, "legacy3d", legacy3d);
 			desaturate = readInt(json, "desaturate", desaturate, 0, 100, 1);
+			dynamicCrosshair = readBoolean(json, "dynamicCrosshair", dynamicCrosshair);
+			dynamicSpeed = readDouble(json, "dynamicSpeed", dynamicSpeed, 0.0, 1000.0);
+			dynamicCalibration = readDouble(json, "dynamicCalibration", dynamicCalibration, 0.5, 2.0);
 		} catch (Exception e) {
 			CrossView.LOGGER.warn("Could not read {}; using default settings and keeping a copy as .bad", FILE, e);
 			try {
@@ -169,6 +220,9 @@ public final class CrossViewConfig {
 		json.addProperty("anaglyphType", anaglyphType.name());
 		json.addProperty("legacy3d", legacy3d);
 		json.addProperty("desaturate", desaturate);
+		json.addProperty("dynamicCrosshair", dynamicCrosshair);
+		json.addProperty("dynamicSpeed", dynamicSpeed);
+		json.addProperty("dynamicCalibration", dynamicCalibration);
 
 		try {
 			Files.createDirectories(FILE.getParent());
@@ -191,6 +245,21 @@ public final class CrossViewConfig {
 			return value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean()
 					? value.getAsBoolean()
 					: fallback;
+		} catch (RuntimeException e) {
+			return fallback;
+		}
+	}
+
+	/** Reads a decimal number and keeps it inside [min, max]. Bad or non-finite values use the fallback. */
+	private static double readDouble(JsonObject json, String key, double fallback, double min, double max) {
+		try {
+			JsonElement value = json.get(key);
+			if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+				return fallback;
+			}
+
+			double number = value.getAsDouble();
+			return Double.isFinite(number) ? Math.clamp(number, min, max) : fallback;
 		} catch (RuntimeException e) {
 			return fallback;
 		}

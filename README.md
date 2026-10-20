@@ -29,12 +29,22 @@ Both keys can be changed in Options > Controls > Key Binds under **CrossView**. 
 | 3D Power | 5 | 1-10, how far apart the eyes are |
 | Vignette | Off | Only matters while a 3D mode is on; with 3D Mode Off the vanilla vignette is untouched |
 | Crosshair | On | Show or hide the crosshair |
-| Crosshair Depth | 0 | -50 to 50, moves the crosshair in front of or behind the screen (Side By Side only) |
+| Crosshair Depth | 0 | Slider, -50 to 50 in steps of 1 (0 in the middle). Moves the crosshair in front of or behind the screen (Side By Side only). With Dynamic Crosshair on it is an offset from the automatic depth |
+| Dynamic Crosshair | On | Side By Side only. The crosshair depth follows whatever is under the crosshair (block, entity or sky), accounting for 3D Power, Legacy 3D, FOV and resolution. Crosshair Depth then becomes an offset from it (0 = exactly on the target) |
+| Dynamic Speed | Normal | Slow / Normal / Fast / Instant. How fast the automatic depth follows the target. Only matters while Dynamic Crosshair is on |
 | Anaglyph Type | Red-Cyan | Red-Cyan / Green-Magenta / Blue-Yellow |
-| Legacy 3D | Off | Adds the older image-shift style of depth |
+| Legacy 3D | On | Adds the older image-shift style of depth |
 | Desaturate | 0 | 0-100. Fades the world to gray so the anaglyph colors stand out. Applies instantly |
 
 Settings are saved to `config/crossview.json`.
+
+One extra value for Dynamic Crosshair can only be changed in `config/crossview.json`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `dynamicCalibration` | 1.0 | Fine-tuning multiplier on the calibrated distance scale (0.5 to 2.0). Raise it if the crosshair looks too close for everything, lower it if too far |
+
+`dynamicSpeed` (in 1/seconds, 0 = instant) is also in the file. The settings screen uses 5 / 10 / 100 / 0 for Slow / Normal / Fast / Instant; any other number you type in shows as "Custom".
 
 ## Requirements
 
@@ -48,7 +58,6 @@ Put the CrossView jar and the Fabric API jar into your `mods` folder.
 ## Good to know
 
 - The world is drawn twice, so expect roughly half the frame rate.
-- Debug overlays (F3 shapes) appear in one eye only.
 - F2 screenshots capture a single eye.
 - Glow outlines in Anaglyph mode come from one eye only.
 - The operating system mouse cursor is drawn once, not in both halves.

@@ -5,6 +5,7 @@
 	"client": [
 		"GameRendererMixin",
 		"HudMixin",
+		"LevelRendererMixin",
 		"MinecraftMixin",
 		"MouseHandlerMixin",
 		"WindowMixin"
